@@ -1,6 +1,6 @@
 // api/search.js
 
-import axios from "axios";
+const axios = require("axios");
 
 const API_KEY = process.env.API_KEY;
 
@@ -9,7 +9,6 @@ const robloxHeaders = {
     "User-Agent": "Mozilla/5.0",
 };
 
-// SortType: 0=Relevance, 1=Favorited, 2=Sales, 3=Updated, 4=PriceAsc, 5=PriceDesc
 const SORT_MAP = {
     "Relevance": "0",
     "RecentlyUpdated": "3",
@@ -17,7 +16,7 @@ const SORT_MAP = {
     "PriceDesc": "5",
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     const key = req.headers["x-api-key"];
     if (!key || key !== API_KEY) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -28,35 +27,31 @@ export default async function handler(req, res) {
     }
 
     try {
-        const {
-            keyword = "",
-            category = "1",
-            subcategory = "",
-            limit = 30,
-            cursor = "",
-            sort = "Relevance",
-            minPrice = "",
-            maxPrice = "",
-        } = req.query;
+        const keyword     = req.query.keyword     || "";
+        const category    = req.query.category    || "1";
+        const subcategory = req.query.subcategory || "";
+        const limit       = req.query.limit       || 30;
+        const cursor      = req.query.cursor      || "";
+        const sort        = req.query.sort        || "Relevance";
+        const minPrice    = req.query.minPrice    || "";
+        const maxPrice    = req.query.maxPrice    || "";
 
-        const sortNum = SORT_MAP[sort] ?? "0";
+        const sortNum = SORT_MAP[sort] || "0";
 
-        const params = new URLSearchParams({
-            Limit: Math.min(Number(limit), 30),
-            SortType: sortNum,
-            SortAggregation: "5",
-            salesTypeFilter: "1",
-        });
+        let url = "https://catalog.roblox.com/v1/search/items/details?";
+        url += "Limit=" + Math.min(Number(limit), 30);
+        url += "&SortType=" + sortNum;
+        url += "&SortAggregation=5";
+        url += "&salesTypeFilter=1";
 
-        if (keyword) params.append("keyword", keyword);
-        if (category) params.append("Category", category);
-        if (subcategory) params.append("Subcategory", subcategory);
-        if (cursor) params.append("Cursor", cursor);
-        if (minPrice) params.append("minPrice", minPrice);
-        if (maxPrice) params.append("maxPrice", maxPrice);
+        if (keyword)     url += "&keyword="     + encodeURIComponent(keyword);
+        if (category)    url += "&Category="    + category;
+        if (subcategory) url += "&Subcategory=" + subcategory;
+        if (cursor)      url += "&Cursor="      + encodeURIComponent(cursor);
+        if (minPrice)    url += "&minPrice="    + minPrice;
+        if (maxPrice)    url += "&maxPrice="    + maxPrice;
 
-        const url = `https://catalog.roblox.com/v1/search/items/details?${params}`;
-        console.log("[search] URL:", url);
+        console.log("[search] Fetching:", url);
 
         const response = await axios.get(url, {
             headers: robloxHeaders,
@@ -66,26 +61,30 @@ export default async function handler(req, res) {
         const items = (response.data.data || []).map((item) => ({
             id: item.id,
             name: item.name,
-            price: item.price ?? null,
-            premiumPrice: item.premiumPricing?.premiumPriceInRobux ?? null,
+            price: item.price !== undefined ? item.price : null,
+            premiumPrice: item.premiumPricing ? item.premiumPricing.premiumPriceInRobux : null,
             creatorName: item.creatorName,
             creatorType: item.creatorType,
             itemType: item.itemType,
             assetType: item.assetType,
-            thumbnail: `https://www.roblox.com/asset-thumbnail/image?assetId=${item.id}&width=420&height=420&format=png`,
-            itemStatus: item.itemStatus ?? [],
-            favoriteCount: item.favoriteCount ?? 0,
+            thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=" + item.id + "&width=420&height=420&format=png",
+            itemStatus: item.itemStatus || [],
+            favoriteCount: item.favoriteCount || 0,
         }));
 
         return res.status(200).json({
-            items,
-            nextCursor: response.data.nextPageCursor ?? null,
-            prevCursor: response.data.previousPageCursor ?? null,
+            items: items,
+            nextCursor: response.data.nextPageCursor || null,
+            prevCursor: response.data.previousPageCursor || null,
         });
 
     } catch (err) {
-        const errDetail = err.response?.data ?? err.message;
-        console.error("[search] Error:", JSON.stringify(errDetail));
-        return res.status(500).json({ error: "Gagal fetch catalog", detail: errDetail });
+        const detail = err.response ? err.response.data : err.message;
+        console.error("[search] Error:", JSON.stringify(detail));
+        return res.status(500).json({
+            error: "Gagal fetch catalog",
+            detail: detail,
+            url: err.config ? err.config.url : "unknown"
+        });
     }
-}
+};

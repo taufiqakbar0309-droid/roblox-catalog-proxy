@@ -26,6 +26,7 @@ export default async function handler(req, res) {
         const {
             keyword = "",
             category = "All",
+            subcategory = "",
             limit = 30,
             cursor = "",
             sort = "Relevance",
@@ -41,6 +42,8 @@ export default async function handler(req, res) {
             salesTypeFilter: 1,
         });
 
+        // Subcategory untuk filter aksesoris/clothing spesifik
+        if (subcategory) params.append("subcategory", subcategory);
         if (cursor) params.append("cursor", cursor);
         if (minPrice) params.append("minPrice", minPrice);
         if (maxPrice) params.append("maxPrice", maxPrice);

@@ -34,17 +34,17 @@ export default async function handler(req, res) {
             maxPrice = "",
         } = req.query;
 
+        // Roblox API pakai huruf kapital dan angka untuk Category
         const params = new URLSearchParams({
-            keyword,
-            category,
-            limit: Math.min(Number(limit), 30),
-            sortType: sort,
+            Limit: Math.min(Number(limit), 30),
+            SortType: sort,
             salesTypeFilter: 1,
         });
 
-        // Subcategory untuk filter aksesoris/clothing spesifik
-        if (subcategory) params.append("subcategory", subcategory);
-        if (cursor) params.append("cursor", cursor);
+        if (keyword) params.append("keyword", keyword);
+        if (category) params.append("Category", category);       // angka: 1=All, 3=Clothing, 5=Gear, 11=Accessories
+        if (subcategory) params.append("Subcategory", subcategory); // angka: 20=Hair, 22=Neck, dll
+        if (cursor) params.append("Cursor", cursor);
         if (minPrice) params.append("minPrice", minPrice);
         if (maxPrice) params.append("maxPrice", maxPrice);
 

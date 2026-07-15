@@ -1,5 +1,4 @@
 // api/search.js
-// Endpoint: GET /api/search?keyword=hat&category=Hats&limit=30&cursor=&sort=Relevance
 
 import axios from "axios";
 
@@ -10,14 +9,20 @@ const robloxHeaders = {
     "User-Agent": "Mozilla/5.0",
 };
 
+// SortType: 0=Relevance, 1=Favorited, 2=Sales, 3=Updated, 4=PriceAsc, 5=PriceDesc
+const SORT_MAP = {
+    "Relevance": "0",
+    "RecentlyUpdated": "3",
+    "PriceAsc": "4",
+    "PriceDesc": "5",
+};
+
 export default async function handler(req, res) {
-    // Validasi API Key
     const key = req.headers["x-api-key"];
     if (!key || key !== API_KEY) {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Hanya izinkan GET
     if (req.method !== "GET") {
         return res.status(405).json({ error: "Method not allowed" });
     }
@@ -25,7 +30,7 @@ export default async function handler(req, res) {
     try {
         const {
             keyword = "",
-            category = "All",
+            category = "1",
             subcategory = "",
             limit = 30,
             cursor = "",
@@ -34,24 +39,28 @@ export default async function handler(req, res) {
             maxPrice = "",
         } = req.query;
 
-        // Roblox API pakai huruf kapital dan angka untuk Category
+        const sortNum = SORT_MAP[sort] ?? "0";
+
         const params = new URLSearchParams({
             Limit: Math.min(Number(limit), 30),
-            SortType: sort,
-            salesTypeFilter: 1,
+            SortType: sortNum,
+            SortAggregation: "5",
+            salesTypeFilter: "1",
         });
 
         if (keyword) params.append("keyword", keyword);
-        if (category) params.append("Category", category);       // angka: 1=All, 3=Clothing, 5=Gear, 11=Accessories
-        if (subcategory) params.append("Subcategory", subcategory); // angka: 20=Hair, 22=Neck, dll
+        if (category) params.append("Category", category);
+        if (subcategory) params.append("Subcategory", subcategory);
         if (cursor) params.append("Cursor", cursor);
         if (minPrice) params.append("minPrice", minPrice);
         if (maxPrice) params.append("maxPrice", maxPrice);
 
         const url = `https://catalog.roblox.com/v1/search/items/details?${params}`;
+        console.log("[search] URL:", url);
+
         const response = await axios.get(url, {
             headers: robloxHeaders,
-            timeout: 8000,
+            timeout: 10000,
         });
 
         const items = (response.data.data || []).map((item) => ({
@@ -75,7 +84,8 @@ export default async function handler(req, res) {
         });
 
     } catch (err) {
-        console.error("[search]", err.message);
-        return res.status(500).json({ error: "Gagal fetch catalog: " + err.message });
+        const errDetail = err.response?.data ?? err.message;
+        console.error("[search] Error:", JSON.stringify(errDetail));
+        return res.status(500).json({ error: "Gagal fetch catalog", detail: errDetail });
     }
 }
